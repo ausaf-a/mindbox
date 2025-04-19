@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>ChatGPT Daily Summaries</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; background: #f9f9f9; }
+    h1 { text-align: center; }
+    .heatmap { display: grid; grid-template-columns: repeat(53, 1fr); gap: 2px; margin-top: 30px; }
+    .day { width: 12px; height: 12px; border-radius: 2px; background: #ebedf0; position: relative; }
+    .tooltip {
+      position: absolute; background: #222; color: #fff; padding: 8px; font-size: 12px;
+      border-radius: 4px; display: none; z-index: 100; white-space: pre-wrap;
+    }
+  </style>
+</head>
+<body>
+  <h1>ChatGPT Summary Heatmap</h1>
+  <div class="heatmap" id="heatmap"></div>
+  <div class="tooltip" id="tooltip"></div>
+  <script>
+    async function load() {
+      const res = await fetch("data/daily_summaries_clean.json");
+      const data = await res.json();
+      const heatmap = document.getElementById("heatmap");
+      const tooltip = document.getElementById("tooltip");
+
+      const dateToCount = Object.fromEntries(
+        Object.entries(data).map(([date, text]) => [date, text.split('\\n').length])
+      );
+
+      const dateToSummary = data;
+
+      const year = new Date().getFullYear();
+      const start = new Date(`${year}-01-01`);
+      const end = new Date(`${year}-12-31`);
+      const days = [];
+
+      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        const iso = d.toISOString().split('T')[0];
+        const count = dateToCount[iso] || 0;
+        const summary = dateToSummary[iso] || '';
+        const div = document.createElement("div");
+        div.className = "day";
+        div.style.backgroundColor = count === 0 ? "#ebedf0" :
+                                    count === 1 ? "#c6e48b" :
+                                    count === 2 ? "#7bc96f" :
+                                    count === 3 ? "#239a3b" : "#196127";
+
+        div.addEventListener("mouseenter", e => {
+          tooltip.innerText = `${iso}\n${summary}`;
+          tooltip.style.display = "block";
+          tooltip.style.left = e.pageX + 10 + "px";
+          tooltip.style.top = e.pageY + "px";
+        });
+
+        div.addEventListener("mouseleave", () => {
+          tooltip.style.display = "none";
+        });
+
+        heatmap.appendChild(div);
+      }
+    }
+
+    load();
+  </script>
+</body>
+</html>
