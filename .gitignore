@@ -1,2 +1,3 @@
 # Ignore data directory and all its contents
 data/*
+split_chats/*

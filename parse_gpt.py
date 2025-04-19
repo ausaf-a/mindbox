@@ -1,41 +1,33 @@
-import json
-from datetime import datetime
-from rich import print
-from rich.console import Console
-from rich.panel import Panel
+import json, os
 
-console = Console()
+def split_conversations(filepath="data/conversations.json", out_dir="split_chats"):
+    os.makedirs(out_dir, exist_ok=True)
+    with open(filepath, "r", encoding="utf-8") as f:
+        data = json.load(f)  # No need to access ["conversations"]
 
-def load_conversations(path="conversations.json"):
-    with open(path, "r", encoding="utf-8") as f:
-        return json.load(f)
+    for i, convo in enumerate(data):
+        title = convo.get("title", f"Untitled_{i}")
+        safe_title = "".join(c for c in title if c.isalnum() or c in (' ', '_')).rstrip()
+        filename = f"{i:03d}_{safe_title[:40].replace(' ', '_')}.json"
 
-def format_timestamp(ts):
-    dt = datetime.fromtimestamp(ts / 1000)
-    return dt.strftime("%Y-%m-%d %H:%M")
+        messages = convo.get("mapping", {})
+        parsed = []
+        for msg in messages.values():
+            try:
+                message = msg.get("message", {})
+                if not message:  # Skip if message is None or empty
+                    continue
+                    
+                content = message.get("content", {}).get("parts", [""])[0]
+                role = message.get("author", {}).get("role", "unknown")
+                if content: 
+                    parsed.append({"role": role, "text": content})
+            except (AttributeError, IndexError, TypeError):
+                continue  # Skip malformed messages
 
-def show_thread(thread):
-    title = thread.get("title", "Untitled")
-    console.rule(f"[bold cyan]{title}[/]")
-    messages = thread.get("mapping", {})
-    
-    sorted_msgs = sorted(
-        [msg for msg in messages.values() if msg.get("message")],
-        key=lambda x: x["message"].get("create_time", 0)
-    )
+        with open(os.path.join(out_dir, filename), "w", encoding="utf-8") as out_f:
+            json.dump(parsed, out_f, indent=2)
 
-    for msg in sorted_msgs:
-        content = msg["message"].get("content", {}).get("parts", [""])[0]
-        role = msg["message"].get("author", {}).get("role", "unknown")
-        time = msg["message"].get("create_time", 0)
-        ts = format_timestamp(time)
-        console.print(Panel(f"[bold]{role.capitalize()}[/] @ {ts}\n{content}", expand=False))
+    print(f"✅ Split {len(data)} conversations into files at {out_dir}/")
 
-def main():
-    data = load_conversations()
-    for conv in data:
-        show_thread(conv)
-        input("\nPress Enter for next thread...\n")
-
-if __name__ == "__main__":
-    main()
+split_conversations()
