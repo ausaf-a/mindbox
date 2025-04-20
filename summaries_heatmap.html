@@ -4,54 +4,384 @@
   <meta charset="UTF-8" />
   <title>ChatGPT Daily Summaries</title>
   <style>
-    body { font-family: sans-serif; padding: 20px; background: #f9f9f9; }
-    h1 { text-align: center; }
-    .heatmap { display: grid; grid-template-columns: repeat(53, 1fr); gap: 2px; margin-top: 30px; }
-    .day { width: 12px; height: 12px; border-radius: 2px; background: #ebedf0; position: relative; }
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      padding: 40px;
+      background: #f6f8fa;
+      color: #24292e;
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 20px;
+      font-size: 28px;
+      font-weight: 600;
+      color: #24292e;
+    }
+
+    .year-navigation {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+
+    .year-btn {
+      background: none;
+      border: none;
+      font-size: 24px;
+      cursor: pointer;
+      color: #0366d6;
+      padding: 8px;
+      border-radius: 6px;
+      transition: background-color 0.2s;
+    }
+
+    .year-btn:hover {
+      background-color: #f6f8fa;
+    }
+
+    .year-btn:disabled {
+      color: #959da5;
+      cursor: not-allowed;
+    }
+
+    .current-year {
+      font-size: 24px;
+      font-weight: 600;
+      color: #24292e;
+      min-width: 60px;
+      text-align: center;
+    }
+
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      background: white;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    .heatmap-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      overflow-x: auto;
+      padding: 20px 0;
+    }
+
+    .heatmap {
+        display: grid;
+        grid-template-columns: repeat(53, 16px);
+        grid-template-rows: repeat(7, 16px);
+        grid-auto-flow: column;   /* ← force top‑to‑bottom, then left‑to‑right */
+        gap: 3px;
+    }
+
+    .day {
+      width: 16px;
+      height: 16px;
+      border-radius: 3px;
+      background: #ebedf0;
+      position: relative;
+      cursor: pointer;
+      transition: transform 0.1s ease;
+    }
+
+    .day:hover {
+      transform: scale(1.3);
+      z-index: 10;
+    }
+
     .tooltip {
-      position: absolute; background: #222; color: #fff; padding: 8px; font-size: 12px;
-      border-radius: 4px; display: none; z-index: 100; white-space: pre-wrap;
+      position: absolute;
+      background: #24292e;
+      color: #fff;
+      padding: 12px 15px;
+      font-size: 13px;
+      border-radius: 6px;
+      display: none;
+      z-index: 100;
+      white-space: pre-wrap;
+      max-width: 400px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      pointer-events: none;
+    }
+
+    .tooltip::before {
+      content: '';
+      position: absolute;
+      width: 0;
+      height: 0;
+      border-left: 8px solid transparent;
+      border-right: 8px solid transparent;
+      border-bottom: 8px solid #24292e;
+      top: -8px;
+      left: 20px;
+    }
+
+    .legend {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: #586069;
+      margin-top: 10px;
+    }
+
+    .legend-item {
+      width: 12px;
+      height: 12px;
+      border-radius: 2px;
+      margin-right: 4px;
+    }
+
+    .month-labels {
+      display: flex;
+      width: 100%;
+      margin-bottom: 4px;
+      font-size: 12px;
+      color: #586069;
+      position: relative;
+      margin-left: 40px; /* Account for weekday labels */
+      height: 16px;
+    }
+
+    .month-label {
+      position: absolute;
+      white-space: nowrap;
+    }
+
+    .weekday-labels {
+      display: flex;
+      flex-direction: column;
+      margin-right: 8px;
+      font-size: 12px;
+      color: #586069;
+    }
+
+    .weekday-label {
+      height: 16px;
+      line-height: 16px;
+      text-align: right;
+      padding-right: 4px;
+      margin-bottom: 3px;
+    }
+
+    .heatmap-wrapper {
+      display: flex;
+    }
+
+    .stat-card {
+      background: #f6f8fa;
+      padding: 15px;
+      border-radius: 6px;
+      margin-top: 20px;
+      display: flex;
+      gap: 30px;
+      justify-content: center;
+    }
+
+    .stat-item {
+      text-align: center;
+    }
+
+    .stat-value {
+      font-size: 24px;
+      font-weight: bold;
+      color: #24292e;
+    }
+
+    .stat-label {
+      font-size: 14px;
+      color: #586069;
+      margin-top: 4px;
     }
   </style>
 </head>
 <body>
-  <h1>ChatGPT Summary Heatmap</h1>
-  <div class="heatmap" id="heatmap"></div>
+  <div class="container">
+    <h1>ChatGPT Summary Heatmap</h1>
+    <div class="year-navigation">
+      <button class="year-btn" id="prevYear">←</button>
+      <span class="current-year" id="currentYear"></span>
+      <button class="year-btn" id="nextYear">→</button>
+    </div>
+    <div class="heatmap-container">
+      <div class="heatmap-wrapper">
+        <div class="weekday-labels" id="weekdayLabels"></div>
+        <div>
+          <div class="month-labels" id="monthLabels"></div>
+          <div class="heatmap" id="heatmap"></div>
+        </div>
+      </div>
+    </div>
+    <div class="legend">
+      <span>Less</span>
+      <div class="legend-item" style="background: #ebedf0;"></div>
+      <div class="legend-item" style="background: #9be9a8;"></div>
+      <div class="legend-item" style="background: #40c463;"></div>
+      <div class="legend-item" style="background: #30a14e;"></div>
+      <div class="legend-item" style="background: #216e39;"></div>
+      <span>More</span>
+    </div>
+    <div class="stat-card">
+      <div class="stat-item">
+        <div class="stat-value" id="totalDays">0</div>
+        <div class="stat-label">Total Days</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-value" id="totalSummaries">0</div>
+        <div class="stat-label">Total Summaries</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-value" id="avgPerDay">0</div>
+        <div class="stat-label">Avg per Day</div>
+      </div>
+    </div>
+  </div>
   <div class="tooltip" id="tooltip"></div>
   <script>
-    async function load() {
+    let currentYear = new Date().getFullYear();
+    let data = {};
+    
+    async function loadData() {
       const res = await fetch("data/daily_summaries_clean.json");
-      const data = await res.json();
+      data = await res.json();
+      renderHeatmap(currentYear);
+    }
+
+    function renderHeatmap(year) {
       const heatmap = document.getElementById("heatmap");
       const tooltip = document.getElementById("tooltip");
-
+      const monthLabels = document.getElementById("monthLabels");
+      const weekdayLabels = document.getElementById("weekdayLabels");
+      const currentYearElement = document.getElementById("currentYear");
+      
+      // Clear existing elements
+      heatmap.innerHTML = '';
+      monthLabels.innerHTML = '';
+      weekdayLabels.innerHTML = '';
+      
+      // Update current year display
+      currentYearElement.textContent = year;
+      
+      // Count summaries: number of lines or 0 if empty
       const dateToCount = Object.fromEntries(
-        Object.entries(data).map(([date, text]) => [date, text.split('\\n').length])
+        Object.entries(data).map(([date, text]) => {
+          const count = text ? text.split('\n').length : 0;
+          return [date, count];
+        })
       );
 
       const dateToSummary = data;
 
-      const year = new Date().getFullYear();
       const start = new Date(`${year}-01-01`);
       const end = new Date(`${year}-12-31`);
-      const days = [];
+      let totalDays = 0;
+      let totalSummaries = 0;
+      
+      // Adjust start date to Sunday of the first week
+      const startDay = start.getDay();
+      if (startDay !== 0) {
+        start.setDate(start.getDate() - startDay);
+      }
+      
+      // Calculate how many total columns we'll need
+      let totalColumns = 0;
+      let tempDate = new Date(start);
+      while (tempDate <= end || tempDate.getDay() !== 0) {
+        if (tempDate.getDay() === 0) totalColumns++;
+        tempDate.setDate(tempDate.getDate() + 1);
+      }
+      
+      // Update heatmap columns to match actual grid size
+      heatmap.style.gridTemplateColumns = `repeat(${totalColumns}, 16px)`;
 
-      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      // Add month labels
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      let currentMonth = -1;
+      let weekCounter = 0;
+      const monthPositions = [];
+      
+      // Add weekday labels
+      const weekdays = ['', 'Mon', '', 'Wed', '', 'Fri', ''];
+      weekdays.forEach(day => {
+        const div = document.createElement("div");
+        div.className = "weekday-label";
+        div.innerText = day;
+        weekdayLabels.appendChild(div);
+      });
+
+      // Create grid day by day
+      let count = 0;
+      for (let d = new Date(start); d <= end || d.getDay() !== 0; d.setDate(d.getDate() + 1)) {
+        const month = d.getMonth();
+        
+        // Track month positions for labels - only for days within the year
+        if (d.getFullYear() === year && d.getDate() === 1) {
+          monthPositions.push({ month: months[month], column: Math.floor(weekCounter / 7) });
+        }
+
         const iso = d.toISOString().split('T')[0];
-        const count = dateToCount[iso] || 0;
+        const dayCount = dateToCount[iso] || 0;
         const summary = dateToSummary[iso] || '';
+        
+        // Check if date is within the year
+        const withinYear = d.getFullYear() === year;
+        
+        if (withinYear && dayCount > 0) {
+          totalDays++;
+          totalSummaries += dayCount;
+        }
+        
         const div = document.createElement("div");
         div.className = "day";
-        div.style.backgroundColor = count === 0 ? "#ebedf0" :
-                                    count === 1 ? "#c6e48b" :
-                                    count === 2 ? "#7bc96f" :
-                                    count === 3 ? "#239a3b" : "#196127";
+        div.dataset.date = iso;
+        
+        // Color based on count
+        div.style.backgroundColor = dayCount === 0 ? "#ebedf0" :
+                                   dayCount === 1 ? "#9be9a8" :
+                                   dayCount === 2 ? "#40c463" :
+                                   dayCount === 3 ? "#30a14e" : "#216e39";
+        
+        // Gray out dates outside current year
+        if (!withinYear) {
+          div.style.opacity = "0.4";
+        }
 
         div.addEventListener("mouseenter", e => {
-          tooltip.innerText = `${iso}\n${summary}`;
+          tooltip.innerHTML = `${iso}<br>${dayCount} summaries${summary ? '<br><br>' + summary : ''}`;
           tooltip.style.display = "block";
-          tooltip.style.left = e.pageX + 10 + "px";
-          tooltip.style.top = e.pageY + "px";
+          
+          const rect = div.getBoundingClientRect();
+          const tooltipRect = tooltip.getBoundingClientRect();
+          
+          let left = e.pageX - (tooltipRect.width / 2);
+          let top = rect.top - tooltipRect.height - 15;
+          
+          if (left < 10) left = 10;
+          if (left + tooltipRect.width > window.innerWidth - 10) {
+            left = window.innerWidth - tooltipRect.width - 10;
+          }
+          
+          if (top < 10) {
+            top = rect.bottom + 15;
+            tooltip.style.setProperty('--arrow-rotate', '180deg');
+          } else {
+            tooltip.style.setProperty('--arrow-rotate', '0deg');
+          }
+          
+          tooltip.style.left = left + "px";
+          tooltip.style.top = top + "px";
         });
 
         div.addEventListener("mouseleave", () => {
@@ -59,10 +389,41 @@
         });
 
         heatmap.appendChild(div);
+        weekCounter++;
       }
+
+      // Add month labels at proper positions
+      monthPositions.forEach(({ month, column }) => {
+        const label = document.createElement("div");
+        label.className = "month-label";
+        label.innerText = month;
+        // Position label at the start of the month
+        label.style.left = `${column * 19}px`; // 16px width + 3px gap
+        monthLabels.appendChild(label);
+      });
+      
+      // Set the width of month labels container to match heatmap
+      monthLabels.style.width = `${totalColumns * 19}px`;
+
+      // Update stats
+      document.getElementById('totalDays').innerText = totalDays;
+      document.getElementById('totalSummaries').innerText = totalSummaries;
+      document.getElementById('avgPerDay').innerText = totalDays > 0 ? (totalSummaries / totalDays).toFixed(1) : '0';
     }
 
-    load();
+    // Add event listeners for year navigation
+    document.getElementById('prevYear').addEventListener('click', () => {
+      currentYear--;
+      renderHeatmap(currentYear);
+    });
+
+    document.getElementById('nextYear').addEventListener('click', () => {
+      currentYear++;
+      renderHeatmap(currentYear);
+    });
+
+    // Initial load
+    loadData();
   </script>
 </body>
 </html>
